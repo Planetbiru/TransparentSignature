@@ -38,67 +38,65 @@
             green: 10,
             blue: 255
         },
-        contrast: 40,
+        contrast:10,
         threshold: 120
     }
+    let ctx;
+    let canvas;
 
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(function (stream) {
-            var video = document.createElement('video');
-            video.srcObject = stream;
-            video.onloadedmetadata = function () {
-                video.play();
+            var image = document.createElement('img');
+            image.src = "image.png";
+            image.onload = function () {
 
                 // Membuat canvas untuk menggambar frame video dan mengubahnya menjadi negatif
-                var canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
+                canvas = document.createElement('canvas');
+                canvas.width = image.width;
+                canvas.height = image.height;
 
-                imgElementOri.style.width = video.videoWidth + 'px';
-                imgElementOri.style.height = video.videoHeight + 'px';
+                imgElementOri.style.width = image.width + 'px';
+                imgElementOri.style.height = image.height + 'px';
 
-                imgElementOri.parentNode.style.width = video.videoWidth + 'px';
-                imgElementOri.parentNode.style.height = video.videoHeight + 'px';
+                imgElementOri.parentNode.style.width = image.width + 'px';
+                imgElementOri.parentNode.style.height = image.height + 'px';
 
-                var ctx = canvas.getContext('2d');
+                ctx = canvas.getContext('2d');
 
                 // Fungsi untuk menggambar frame video dan mengubahnya menjadi negatif
-                function drawFrame() {
-
-                    now = Date.now();
-                    delta = now - then;
-
-                    if (delta > interval) {
-                        // Update waktu terakhir frame ditarik
-                        then = now - (delta % interval);
-
-                        // Tarik frame baru di sini
-
-                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                        var result = processSignature(video, video.videoWidth, video.videoHeight, opt);
-
-                        // Menampilkan hasil negatif
-                        imgElementOri.src = canvas.toDataURL();
-
-
-                        imgElement.parentNode.style.left = (result.left - 0) + 'px';
-                        imgElement.parentNode.style.top = (result.top - 0) + 'px';
-                        imgElement.src = result.canvas.toDataURL();
-                    }
-
-
-                    requestAnimationFrame(drawFrame);
-                }
+                
 
                 // Mulai menggambar frame video
                 drawFrame();
             };
-        })
-        .catch(function (err) {
-            console.log('Gagal mendapatkan akses ke kamera video: ' + err);
-        });
 
+
+    function drawFrame() {
+
+        now = Date.now();
+        delta = now - then;
+
+        //if (delta > interval) 
+        {
+            // Update waktu terakhir frame ditarik
+            then = now - (delta % interval);
+
+            // Tarik frame baru di sini
+
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+            var result = processSignature(image, image.width, image.height, opt);
+
+            // Menampilkan hasil negatif
+            imgElementOri.src = canvas.toDataURL();
+
+
+            imgElement.parentNode.style.left = (result.left - 0) + 'px';
+            imgElement.parentNode.style.top = (result.top - 0) + 'px';
+            imgElement.src = result.canvas.toDataURL();
+        }
+
+
+        //requestAnimationFrame(drawFrame);
+    }
 
     function processSignature(img, imgWidth, imgHeight, opt) {
         opt = opt || {};
@@ -110,7 +108,7 @@
             blue: opt.color.blue || 0,
         }
 
-
+        console.log(imgWidth, imgHeight)
         var canvas = document.createElement('canvas');
         canvas.width = imgWidth;
         canvas.height = imgHeight;
