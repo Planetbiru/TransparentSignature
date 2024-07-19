@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transparent Signature</title>
+</head>
+
+<body>
+    <div style="position: relative; overflow: hidden;">
+        <div>
+            <img src="" alt="" id="original-image">
+        </div>
+        <div style="position: absolute; box-shadow: inset 0px 0px 1px red;">
+            <img src="" alt="" id="your-img-element-id" style="">
+        </div>
+    </div>
+    <button
+        onclick="window.location=document.querySelector('#your-img-element-id').getAttribute('src')">Capture</button>
+</body>
+
+<script>
+    // Mendapatkan akses ke kamera video
+    var imgElement = document.getElementById('your-img-element-id');
+    var imgElementOri = document.getElementById('original-image');
+
+
+    var fps = 25; // Framerate yang diinginkan
+    var now;
+    var then = Date.now();
+    var interval = 1000 / fps;
+    var delta;
+
+    let opt = {
+        color: {
+            red: 0,
+            green: 10,
+            blue: 255
+        },
+        contrast: 40,
+        threshold: 120
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function (stream) {
+            var video = document.createElement('video');
+            video.srcObject = stream;
+            video.onloadedmetadata = function () {
+                video.play();
+
+                // Membuat canvas untuk menggambar frame video dan mengubahnya menjadi negatif
+                var canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                imgElementOri.style.width = video.videoWidth + 'px';
+                imgElementOri.style.height = video.videoHeight + 'px';
+
+                imgElementOri.parentNode.style.width = video.videoWidth + 'px';
+                imgElementOri.parentNode.style.height = video.videoHeight + 'px';
+
+                var ctx = canvas.getContext('2d');
+
+                // Fungsi untuk menggambar frame video dan mengubahnya menjadi negatif
+                function drawFrame() {
+
+                    now = Date.now();
+                    delta = now - then;
+
+                    if (delta > interval) {
+                        // Update waktu terakhir frame ditarik
+                        then = now - (delta % interval);
+
+                        // Tarik frame baru di sini
+
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        var result = processSignature(video, video.videoWidth, video.videoHeight, opt);
+
+                        // Menampilkan hasil negatif
+                        imgElementOri.src = canvas.toDataURL();
+
+
+                        imgElement.parentNode.style.left = (result.left - 0) + 'px';
+                        imgElement.parentNode.style.top = (result.top - 0) + 'px';
+                        imgElement.src = result.canvas.toDataURL();
+                    }
+
+
+                    requestAnimationFrame(drawFrame);
+                }
+
+                // Mulai menggambar frame video
+                drawFrame();
+            };
+        })
+        .catch(function (err) {
+            console.log('Gagal mendapatkan akses ke kamera video: ' + err);
+        });
+
+
+    function processSignature(img, imgWidth, imgHeight, opt) {
+        opt = opt || {};
+        var contrast = opt.contrast || 60; // Nilai kontras, bisa disesuaikan
+        let threshold = opt.threshold || 120;
+        let color = opt.color || {
+            red: opt.color.red || 0,
+            green: opt.color.green || 0,
+            blue: opt.color.blue || 0,
+        }
+
+
+        var canvas = document.createElement('canvas');
+        canvas.width = imgWidth;
+        canvas.height = imgHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, imgWidth, imgHeight);
+
+        var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        var data = imageData.data;
+
+
+        var factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+        for (var i = 0; i < data.length; i += 4) {
+            data[i] = factor * (data[i] - 128) + 128; // Merah
+            data[i + 1] = factor * (data[i + 1] - 128) + 128; // Hijau
+            data[i + 2] = factor * (data[i + 2] - 128) + 128; // Biru
+        }
+        for (var i = 0; i < data.length; i += 4) {
+            // Jika pixel berwarna putih (atau mendekati putih)
+            if (data[i] > threshold && data[i + 1] > threshold && data[i + 2] > threshold) {
+                // Ubah pixel tersebut menjadi transparan
+                data[i + 3] = 0;
+            }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        // Mencari batas trim
+        var top = null, bottom = null, left = null, right = null;
+
+        // mencari left
+        for (var x = 0; x < imgWidth && left == null; x++) {
+            for (var y = 0; y < imgHeight; y++) {
+                var alpha = data[(y * imgWidth + x) * 4 + 3];
+                if (alpha !== 0) {
+                    left = x;
+                    break;
+                }
+            }
+        }
+        // mencari right
+        for (var x = imgWidth - 1; x >= 0 && right == null; x--) {
+            for (var y = 0; y < imgHeight; y++) {
+                var alpha = data[(y * imgWidth + x) * 4 + 3];
+                if (alpha !== 0) {
+                    right = x;
+                    break;
+                }
+            }
+        }
+
+        // mencari top
+        for (var y = 0; y < imgHeight && top == null; y++) {
+            for (var x = 0; x < imgWidth; x++) {
+                var alpha = data[(y * imgWidth + x) * 4 + 3];
+                if (alpha !== 0) {
+                    top = y;
+                    break;
+                }
+            }
+        }
+
+        // mencari bottom
+        for (var y = imgHeight - 1; y >= 0 && bottom == null; y--) {
+            for (var x = 0; x < imgWidth; x++) {
+                var alpha = data[(y * imgWidth + x) * 4 + 3];
+                if (alpha !== 0) {
+                    bottom = y;
+                    break;
+                }
+            }
+        }
+
+        let maxColor = 255;
+        for (var x = left; x <= right; x++) {
+            for (var y = top; y <= bottom; y++) {
+                if (data[(y * imgWidth + x) * 4 + 3] > 0) {
+                    var avg = parseInt((data[(y * imgWidth + x) * 4 + 0] + data[(y * imgWidth + x) * 4 + 1] + data[(y * imgWidth + x) * 4 + 2] / 3));
+                    maxColor = Math.min(maxColor, avg);
+                }
+            }
+        }
+
+
+        for (var x = left; x <= right; x++) {
+            for (var y = top; y <= bottom; y++) {
+                if (data[(y * imgWidth + x) * 4 + 3] > 0) {
+                    var avg = parseInt((data[(y * imgWidth + x) * 4 + 0] + data[(y * imgWidth + x) * 4 + 1] + data[(y * imgWidth + x) * 4 + 2] / 3));
+
+                    if (data[(y * imgWidth + x) * 4 + 3] > 0) {
+                        data[(y * imgWidth + x) * 4 + 0] = color.red;
+                        data[(y * imgWidth + x) * 4 + 1] = color.green;
+                        data[(y * imgWidth + x) * 4 + 2] = color.blue;
+                        data[(y * imgWidth + x) * 4 + 3] = avg;
+                    }
+                }
+            }
+        }
+
+        var canvas2 = document.createElement('canvas');
+        canvas2.width = imgWidth;
+        canvas2.height = imgHeight;
+        var ctx2 = canvas.getContext('2d');
+        ctx2.putImageData(imageData, 0, 0);
+
+
+        // Membuat canvas baru untuk hasil trim
+        var trimCanvas = document.createElement('canvas');
+        trimCanvas.width = right - left + 1;
+        trimCanvas.height = bottom - top + 1;
+        var trimCtx = trimCanvas.getContext('2d');
+
+        // Mengambil data gambar dari area trim
+        var trimImageData = ctx2.getImageData(left, top, trimCanvas.width, trimCanvas.height);
+
+        // Menggambar data gambar ke canvas trim
+        trimCtx.putImageData(trimImageData, 0, 0);
+
+        return { canvas: trimCanvas, left: left, right: right, top: top, bottom: bottom };
+    }
+</script>
+
+</html>
