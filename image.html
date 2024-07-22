@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transparent Signature</title>
+    <script src="resize.js"></script>
 </head>
 
 <body>
@@ -206,27 +207,90 @@
                 }
             }
         }
+        
+        
 
         var canvas2 = document.createElement('canvas');
         canvas2.width = imgWidth;
         canvas2.height = imgHeight;
-        var ctx2 = canvas.getContext('2d');
+        var ctx2 = canvas2.getContext('2d');
         ctx2.putImageData(imageData, 0, 0);
+        
+        let trimWidth = right - left + 1;
+        let trimHeight = bottom - top + 1;
 
 
         // Membuat canvas baru untuk hasil trim
         var trimCanvas = document.createElement('canvas');
-        trimCanvas.width = right - left + 1;
-        trimCanvas.height = bottom - top + 1;
+        trimCanvas.width = trimWidth;
+        trimCanvas.height = trimHeight;
         var trimCtx = trimCanvas.getContext('2d');
+        
 
         // Mengambil data gambar dari area trim
-        var trimImageData = ctx2.getImageData(left, top, trimCanvas.width, trimCanvas.height);
+        var trimImageData = ctx2.getImageData(left, top, trimWidth, trimHeight);
 
         // Menggambar data gambar ke canvas trim
-        trimCtx.putImageData(trimImageData, 0, 0);
+        
+        
+        var resizedCanvas = document.createElement('canvas');
 
-        return { canvas: trimCanvas, left: left, right: right, top: top, bottom: bottom };
+        let scale = 1.9;
+        var resizedCtx = resizedCanvas.getContext('2d');
+        
+        resizedCanvas.width = trimWidth*scale;
+        resizedCanvas.height = trimHeight*scale;
+        //let resizedImageData = resizeImageData1(trimImageData, trimWidth*scale, trimHeight*scale);
+        let resizedImageData = resizeImageData(trimImageData, trimWidth*scale, trimHeight*scale, 'bilinear-interpolation');
+        
+                
+        resizedCtx.putImageData(resizedImageData, 0, 0);
+
+        return { canvas: resizedCanvas, left: left, right: right, top: top, bottom: bottom, width:resizedCanvas.width, height:resizedCanvas.height };
+    }
+    
+    
+    
+    
+    /**
+     * 
+     * @param {ImageData} originalImageData 
+     * @param {Int32} targetWidth 
+     * @param {Int32} targetHeight 
+     */
+    function resizeImageData1(originalImageData, targetWidth, targetHeight) {
+        console.log(targetWidth, targetHeight)
+        const targetImageData = new ImageData(targetWidth, targetHeight);
+        const h1 = originalImageData.height;
+        const w1 = originalImageData.width;
+        const h2 = targetImageData.height;
+        const w2 = targetImageData.width;
+        const kh = h1 / h2;
+        const kw = w1 / w2;
+        const pixelSum = new Int32Array(4);
+        for (let i2 = 0; i2 < h2; i2 += 1) {
+            for (let j2 = 0; j2 < w2; j2 += 1) {
+                for (let i in pixelSum) 
+                {
+                    pixelSum[i] = 0;
+                }
+                let nPixel = 0;
+                for (let i1 = Math.ceil(i2 * kh); i1 < (i2 + 1) * kh; i1 += 1) {
+                    for (let j1 = Math.ceil(j2 * kw); j1 < (j2 + 1) * kw; j1 += 1) {
+                        const curP1 = (i1 * w1 + j1) * 4;
+                        for (let k = 0; k < 4; k += 1) {
+                            pixelSum[k] += originalImageData.data[curP1 + k];
+                        };
+                        nPixel += 1;
+                    };
+                };
+                const curP2 = (i2 * w2 + j2) * 4;
+                for (let k = 0; k < 4; k += 1) {
+                    targetImageData.data[curP2 + k] = pixelSum[k] / nPixel;
+                };
+            };
+        };
+        return targetImageData;
     }
 </script>
 
